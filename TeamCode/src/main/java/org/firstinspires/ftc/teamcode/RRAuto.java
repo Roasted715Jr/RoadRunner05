@@ -1,15 +1,16 @@
 package org.firstinspires.ftc.teamcode;
 
+import androidx.annotation.NonNull;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.geometry.Pose2d;
 import com.acmerobotics.roadrunner.geometry.Vector2d;
-import com.acmerobotics.roadrunner.trajectory.Trajectory;
+import com.acmerobotics.roadrunner.trajectory.constraints.TrajectoryVelocityConstraint;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.drive.SampleMecanumDrive;
+import org.firstinspires.ftc.teamcode.trajectorysequence.TrajectorySequence;
 
 /**
  * This is a simple teleop routine for testing localization. Drive the robot around like a normal
@@ -21,88 +22,93 @@ import org.firstinspires.ftc.teamcode.drive.SampleMecanumDrive;
 @Autonomous()
 @Config
 public class RRAuto extends LinearOpMode {
-    public static double chainSpeed = 0.5;
-    public static double angleSpeed = 0.3;
-
     public static double startX = 32;
     public static double startY = 61.5;
     public static double startHeadingDeg = 270;
-    double startHeading = Math.toRadians(startHeadingDeg); //Convet to radians so we don't need to constantly convert
     public static boolean observationSide = false;
+    public static boolean redSide = false;
 
-    public static Vector2d block1Apex = new Vector2d(36, 12);
-    public static double block1ApexTanDeg = 0;
-    double block1ApexTan= Math.toRadians(block1ApexTanDeg);
-    public static Vector2d block1Contact = new Vector2d(48, 24);
-    public static double block1ContactTanDeg = 90;
-    double block1ContactTan = Math.toRadians(block1ContactTanDeg);
-    public static Vector2d block1Finish = new Vector2d(48, 61.5);
-    public static double block1FinishTanDeg = 90;
-    double block1FinishTan = Math.toRadians(block1FinishTanDeg);
+    public static double slowVel = 16;
 
-    public static double forwardDistance = 53;
-    public static double leftDistance = 14.5;
-    public static double backDistance = 50;
+    public static double contactY = 12;
+    public static double block1TurnX = 36;
+    public static double block1ContactX = 44;
+    public static double block1FinishY = 58;
+    public static double block2FinishY = 50;
+    public static double block3FinishY = 45;
 
     @Override
     public void runOpMode() throws InterruptedException {
-        //Initialize RoadRunner mecanum
+        Robot robot = new Robot(hardwareMap);
         SampleMecanumDrive drive = new SampleMecanumDrive(hardwareMap);
-        drive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        //Initialize RoadRunner position
+        robot.initHardware();
+
+        //Initialize RR variables here so they get regenerated between runs
+        double startHeading = Math.toRadians(startHeadingDeg); //Convert to radians so we don't need to constantly convert
         Pose2d startPose = new Pose2d(startX, startY, startHeading);
-        drive.setPoseEstimate(startPose);
+        robot.initRR(drive, startPose);
 
-        //Initialize other robot hardware
-        DcMotor chain = hardwareMap.get(DcMotor.class, "chain");
-        chain.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        DcMotor angle = hardwareMap.get(DcMotor.class, "angle");
-        angle.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        Servo leftServo = hardwareMap.get(Servo.class, "leftServo");
-        Servo rightServo = hardwareMap.get(Servo.class, "rightServo");
+        Vector2d block1Turn = new Vector2d(block1TurnX, contactY);
+        Vector2d block1Contact = new Vector2d(block1ContactX, contactY);
+        Vector2d block1Finish = new Vector2d(block1Contact.getX(), block1FinishY);
+        Vector2d block2Contact = new Vector2d(block1Contact.getX() + 10, contactY);
+        Vector2d block2Finish = new Vector2d(block2Contact.getX(), block2FinishY);
+        Vector2d block3Contact = new Vector2d(block2Contact.getX() + 10, contactY);
+        Vector2d block3Finish = new Vector2d(block3Contact.getX(), block3FinishY);
 
-//        Trajectory autoTrajectory = drive.trajectoryBuilder(startPose)
-//                .forward(forwardDistance)
-//                .strafeLeft(leftDistance)
-//                .back(backDistance)
-//                .build();
+        TrajectoryVelocityConstraint slowVelConstraint = new TrajectoryVelocityConstraint() {
+            @Override
+            public double get(double v, @NonNull Pose2d pose2d, @NonNull Pose2d pose2d1, @NonNull Pose2d pose2d2) {
+                return slowVel;
+            }
+        };
 
-//        Trajectory forwardTraj = drive.trajectoryBuilder(startPose)
-//                .forward(forwardDistance)
-//                .build();
-//
-//        Trajectory leftTraj = drive.trajectoryBuilder(forwardTraj.end())
-//                .strafeLeft(leftDistance)
-//                .build();
-//
-//        Trajectory backTraj = drive.trajectoryBuilder(leftTraj.end())
-//                .back(backDistance)
-//                .build();
+        TrajectorySequence block1Traj = drive.trajectorySequenceBuilder(startPose)
+                //Block 1
+                .splineToConstantHeading(block1Turn, Math.toRadians(-90))
+                .splineToConstantHeading(block1Contact, Math.toRadians(90), slowVelConstraint, null)
+                .splineToConstantHeading(block1Finish, Math.toRadians(90))
+                //Force the bot to slow down, otherwise it will slam into the wall
+                .waitSeconds(0)
 
-        //Roadrunner suggests that whenever the robot stops or reverses direction, we should create a new trajectory https://learnroadrunner.com/trajectories.html#running-multiple-trajectories
-        Trajectory block1Traj = drive.trajectoryBuilder(startPose)
-//                .splineToConstantHeading(block1Apex, block1ApexTan)
-                .lineToConstantHeading(block1Apex)
+                //Block 2
+                .splineToConstantHeading(block1Contact, Math.toRadians(-90))
+                .splineToConstantHeading(block2Contact, Math.toRadians(90), slowVelConstraint, null)
+                .splineToConstantHeading(block2Finish, Math.toRadians(90))
+                .waitSeconds(0)
+
+                //Block 3
+                .splineToConstantHeading(block2Contact, Math.toRadians(-90))
+                .splineToConstantHeading(block3Contact, Math.toRadians(90), slowVelConstraint, null)
+                .splineToConstantHeading(block3Finish, Math.toRadians(90))
+
+                //Park
+
                 .build();
 
-        Trajectory block1FinishTraj = drive.trajectoryBuilder(block1Traj.end(), true)
-                .splineToConstantHeading(block1Contact, block1ContactTan)
-//                .splineToConstantHeading(block1Finish, block1FinishTan)
-                .lineToConstantHeading(block1Finish)
-                .build();
+//        TrajectorySequence trajectory0 = drive.trajectorySequenceBuilder(new Pose2d(32.74, 64.82, Math.toRadians(-89.16)))
+//                .splineToConstantHeading(new Vector2d(39.48, 6.81), Math.toRadians(-75.11))
+//
+//                .setVelConstraint(new TrajectoryVelocityConstraint() {
+//                    @Override
+//                    public double get(double v, @NonNull Pose2d pose2d, @NonNull Pose2d pose2d1, @NonNull Pose2d pose2d2) {
+//                        return slowVel;
+//                    }
+//                })
+//                .splineToConstantHeading(new Vector2d(48.00, 16.00), Math.toRadians(91.21))
+//                .resetVelConstraint()
+//
+//                .splineToConstantHeading(new Vector2d(49.00, 58.00), Math.toRadians(90))
+//                .build();
+//        drive.setPoseEstimate(trajectory0.start());
 
         waitForStart();
 
         if (isStopRequested())
             return;
 
-//        drive.followTrajectory(autoTrajectory);
-//        drive.followTrajectory(forwardTraj);
-//        drive.followTrajectory(leftTraj);
-//        drive.followTrajectory(backTraj);
-
-        drive.followTrajectory(block1Traj);
-        drive.followTrajectory(block1FinishTraj);
+        drive.followTrajectorySequence(block1Traj);
+//        drive.followTrajectorySequence(trajectory0);
     }
 }
