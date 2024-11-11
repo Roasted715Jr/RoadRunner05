@@ -36,6 +36,8 @@ public class RRAuto extends LinearOpMode {
     public static double block1FinishY = 58;
     public static double block2FinishY = 50;
     public static double block3FinishY = 45;
+    public static double parkX = 25;
+    public static double parkY = 0;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -56,6 +58,7 @@ public class RRAuto extends LinearOpMode {
         Vector2d block2Finish = new Vector2d(block2Contact.getX(), block2FinishY);
         Vector2d block3Contact = new Vector2d(block2Contact.getX() + 10, contactY);
         Vector2d block3Finish = new Vector2d(block3Contact.getX(), block3FinishY);
+        Vector2d park = new Vector2d(parkX, parkY);
 
         TrajectoryVelocityConstraint slowVelConstraint = new TrajectoryVelocityConstraint() {
             @Override
@@ -84,6 +87,10 @@ public class RRAuto extends LinearOpMode {
                 .splineToConstantHeading(block3Finish, Math.toRadians(90))
 
                 //Park
+                //Tell it reverse so it makes a nice quarter circle
+                .setReversed(true)
+                .splineToConstantHeading(park, Math.toRadians(180))
+                .setReversed(false)
 
                 .build();
 
