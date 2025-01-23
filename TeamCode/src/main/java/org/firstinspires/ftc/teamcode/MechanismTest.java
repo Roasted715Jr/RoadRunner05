@@ -19,8 +19,8 @@ import org.firstinspires.ftc.teamcode.drive.SampleMecanumDrive;
 @TeleOp(group = "drive")
 @Config
 public class MechanismTest extends LinearOpMode {
-    public static double chainSpeed = 0.5;
-    public static double angleSpeed = 0.3;
+    public static double chainSpeed = 1;
+    public static double angleSpeed = 1;
 
     @Override
     public void runOpMode() throws InterruptedException {
